@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Data Analysis Assistant</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --indigo: #6366f1;
+      --indigo-dark: #4f46e5;
+      --indigo-light: #e0e7ff;
+      --slate-900: #0f172a;
+      --slate-800: #1e293b;
+      --slate-700: #334155;
+      --slate-500: #64748b;
+      --slate-400: #94a3b8;
+      --slate-200: #e2e8f0;
+      --slate-100: #f1f5f9;
+      --slate-50:  #f8fafc;
+      --white: #ffffff;
+      --red: #ef4444;
+      --green: #22c55e;
+    }
+
+    html, body { height: 100%; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--slate-100);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--slate-900);
+      color: var(--white);
+      padding: 0 20px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,.3);
+      z-index: 10;
+    }
+    header .logo { font-size: 22px; }
+    header h1 { font-size: 16px; font-weight: 600; letter-spacing: -.2px; }
+    header .badge {
+      margin-left: auto;
+      font-size: 11px;
+      background: var(--indigo);
+      color: var(--white);
+      padding: 3px 9px;
+      border-radius: 20px;
+      font-weight: 500;
+    }
+
+    /* ── Layout ── */
+    .layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 300px;
+      flex-shrink: 0;
+      background: var(--slate-800);
+      color: var(--slate-400);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 16px;
+      gap: 16px;
+    }
+
+    .upload-zone {
+      border: 2px dashed var(--slate-700);
+      border-radius: 12px;
+      padding: 24px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      flex-shrink: 0;
+    }
+    .upload-zone:hover, .upload-zone.dragover {
+      border-color: var(--indigo);
+      background: rgba(99,102,241,.08);
+    }
+    .upload-zone .uz-icon { font-size: 28px; margin-bottom: 8px; }
+    .upload-zone .uz-title { font-size: 13px; font-weight: 600; color: var(--slate-200); }
+    .upload-zone .uz-sub { font-size: 11px; margin-top: 4px; color: var(--slate-500); }
+    #file-input { display: none; }
+
+    /* Schema */
+    .schema-box { display: none; flex-direction: column; gap: 10px; }
+    .schema-box.visible { display: flex; }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--slate-500);
+    }
+
+    .schema-meta { font-size: 12px; color: var(--slate-400); line-height: 1.7; }
+    .schema-filename { font-size: 13px; font-weight: 600; color: var(--slate-200); word-break: break-all; }
+
+    .col-item {
+      background: var(--slate-900);
+      border-radius: 8px;
+      padding: 8px 10px;
+      border-left: 3px solid var(--indigo);
+    }
+    .col-name { font-size: 12px; font-weight: 600; color: var(--slate-200); }
+    .col-type { font-size: 10px; color: var(--slate-500); margin-top: 1px; }
+    .col-stats { font-size: 10px; color: var(--slate-400); margin-top: 2px; line-height: 1.4; }
+
+    /* ── Chat area ── */
+    .chat-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--slate-50);
+    }
+
+    /* Welcome */
+    .welcome {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 40px;
+      gap: 16px;
+      color: var(--slate-500);
+    }
+    .welcome .w-icon { font-size: 56px; }
+    .welcome h2 { font-size: 22px; font-weight: 700; color: var(--slate-800); }
+    .welcome p { font-size: 14px; max-width: 380px; line-height: 1.7; }
+    .welcome .steps {
+      display: flex;
+      gap: 24px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .step {
+      background: var(--white);
+      border-radius: 10px;
+      padding: 14px 18px;
+      text-align: center;
+      width: 130px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.07);
+    }
+    .step .s-icon { font-size: 22px; margin-bottom: 6px; }
+    .step p { font-size: 12px; color: var(--slate-600); line-height: 1.4; }
+
+    /* Messages */
+    .messages {
+      display: none;
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .messages.visible { display: flex; }
+
+    .msg {
+      display: flex;
+      gap: 10px;
+      max-width: 880px;
+      width: 100%;
+      align-self: flex-start;
+    }
+    .msg.user { align-self: flex-end; flex-direction: row-reverse; }
+
+    .avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
+      background: var(--indigo);
+    }
+    .msg.user .avatar { background: var(--slate-700); }
+
+    .bubble {
+      background: var(--white);
+      border-radius: 14px;
+      padding: 14px 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.07);
+      max-width: calc(100% - 46px);
+      min-width: 0;
+    }
+    .msg.user .bubble {
+      background: var(--indigo);
+      color: var(--white);
+    }
+
+    .msg-text {
+      font-size: 14px;
+      line-height: 1.65;
+      word-break: break-word;
+    }
+
+    /* Typing indicator */
+    .typing { display: flex; gap: 5px; align-items: center; padding: 4px 0; }
+    .dot {
+      width: 7px; height: 7px;
+      background: var(--slate-400);
+      border-radius: 50%;
+      animation: pulse 1.4s infinite ease-in-out;
+    }
+    .dot:nth-child(2) { animation-delay: .2s; }
+    .dot:nth-child(3) { animation-delay: .4s; }
+    @keyframes pulse {
+      0%, 80%, 100% { transform: scale(.6); opacity: .5; }
+      40% { transform: scale(1); opacity: 1; }
+    }
+
+    /* Result components */
+    .result-section { margin-top: 14px; }
+
+    .result-chart {
+      background: var(--white);
+      border-radius: 8px;
+      border: 1px solid var(--slate-200);
+      padding: 12px;
+      position: relative;
+      height: 320px;
+    }
+    .result-chart canvas { width: 100% !important; height: 100% !important; }
+
+    .result-scalar {
+      background: var(--indigo-light);
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--indigo-dark);
+      display: inline-block;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 8px;
+      border: 1px solid var(--slate-200);
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    table.result-table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 12px;
+    }
+    .result-table th {
+      background: var(--slate-100);
+      position: sticky;
+      top: 0;
+      padding: 7px 12px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--slate-700);
+      border-bottom: 2px solid var(--slate-200);
+      white-space: nowrap;
+    }
+    .result-table td {
+      padding: 6px 12px;
+      border-bottom: 1px solid var(--slate-100);
+      color: var(--slate-700);
+      white-space: nowrap;
+    }
+    .result-table tr:hover td { background: var(--slate-50); }
+    .null-cell { color: var(--slate-400); font-style: italic; }
+
+    .row-note { font-size: 11px; color: var(--slate-400); margin-top: 5px; }
+
+    .error-box {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--red);
+      margin-top: 10px;
+    }
+
+    /* Input area */
+    .input-bar {
+      display: none;
+      padding: 12px 16px;
+      background: var(--white);
+      border-top: 1px solid var(--slate-200);
+      gap: 10px;
+      align-items: flex-end;
+    }
+    .input-bar.visible { display: flex; }
+
+    #query-input {
+      flex: 1;
+      border: 1.5px solid var(--slate-200);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 14px;
+      font-family: inherit;
+      resize: none;
+      min-height: 42px;
+      max-height: 120px;
+      outline: none;
+      transition: border-color .2s;
+      background: var(--slate-50);
+    }
+    #query-input:focus { border-color: var(--indigo); background: var(--white); }
+    #query-input:disabled { opacity: .6; cursor: not-allowed; }
+
+    #send-btn {
+      background: var(--indigo);
+      color: var(--white);
+      border: none;
+      border-radius: 10px;
+      padding: 10px 18px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .2s, transform .1s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    #send-btn:hover:not(:disabled) { background: var(--indigo-dark); }
+    #send-btn:active:not(:disabled) { transform: scale(.97); }
+    #send-btn:disabled { opacity: .5; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="logo">🧠</span>
+  <h1>AI Data Analysis Assistant</h1>
+</header>
+
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="upload-zone" id="upload-zone">
+      <div class="uz-icon">📂</div>
+      <div class="uz-title">Drop your dataset here</div>
+      <div class="uz-sub">or click to browse · CSV or Excel</div>
+    </div>
+    <input type="file" id="file-input" accept=".csv,.xlsx,.xls" />
+
+    <div class="schema-box" id="schema-box">
+      <div class="section-label">Dataset</div>
+      <div id="schema-meta"></div>
+
+      <div class="section-label" style="margin-top:4px">Columns</div>
+      <div id="schema-cols"></div>
+    </div>
+  </aside>
+
+  <!-- Chat -->
+  <div class="chat-area">
+
+    <div class="welcome" id="welcome">
+      <div class="w-icon">📊</div>
+      <h2>Analyze data with plain English</h2>
+      <p>Upload a CSV or Excel file and ask questions about your data — no SQL or coding required.</p>
+      <div class="steps">
+        <div class="step"><div class="s-icon">📤</div><p>Upload a dataset</p></div>
+        <div class="step"><div class="s-icon">💬</div><p>Ask a question</p></div>
+        <div class="step"><div class="s-icon">📈</div><p>Get instant insights</p></div>
+      </div>
+    </div>
+
+    <div class="messages" id="messages"></div>
+
+    <div class="input-bar" id="input-bar">
+      <textarea id="query-input" rows="1" placeholder="Ask a question about your data…"></textarea>
+      <button id="send-btn" onclick="sendQuery()">Send ↑</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  let sessionId = null;
+  let isBusy = false;
+
+  // ── File upload wiring ───────────────────────────────────────────────
+  const uploadZone = document.getElementById('upload-zone');
+  const fileInput  = document.getElementById('file-input');
+
+  uploadZone.addEventListener('click', () => fileInput.click());
+
+  uploadZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    uploadZone.classList.add('dragover');
+  });
+  uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+  uploadZone.addEventListener('drop', e => {
+    e.preventDefault();
+    uploadZone.classList.remove('dragover');
+    const f = e.dataTransfer.files[0];
+    if (f) uploadFile(f);
+  });
+  fileInput.addEventListener('change', e => {
+    if (e.target.files[0]) uploadFile(e.target.files[0]);
+    fileInput.value = '';
+  });
+
+  // ── Upload ───────────────────────────────────────────────────────────
+  async function uploadFile(file) {
+    uploadZone.innerHTML = `<div class="uz-icon">⏳</div><div class="uz-title">Uploading…</div>`;
+    uploadZone.style.pointerEvents = 'none';
+
+    const form = new FormData();
+    form.append('file', file);
+
+    try {
+      const res = await fetch('/api/upload', { method: 'POST', body: form });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Upload failed');
+      }
+      const data = await res.json();
+      sessionId = data.session_id;
+
+      renderSchema(data.schema);
+      showChat();
+      appendAI(data.summary);
+
+      uploadZone.innerHTML = `
+        <div class="uz-icon">✅</div>
+        <div class="uz-title">${escHtml(file.name)}</div>
+        <div class="uz-sub">Click to upload another file</div>`;
+    } catch (err) {
+      uploadZone.innerHTML = `<div class="uz-icon">❌</div><div class="uz-title">${escHtml(err.message)}</div><div class="uz-sub">Click to try again</div>`;
+    } finally {
+      uploadZone.style.pointerEvents = 'auto';
+    }
+  }
+
+  // ── Schema sidebar ───────────────────────────────────────────────────
+  function renderSchema(schema) {
+    const meta = document.getElementById('schema-meta');
+    meta.innerHTML = `
+      <div class="schema-filename">${escHtml(schema.filename)}</div>
+      <div class="schema-meta">${schema.rows.toLocaleString()} rows &nbsp;·&nbsp; ${schema.columns} columns</div>`;
+
+    const colsEl = document.getElementById('schema-cols');
+    colsEl.innerHTML = schema.column_info.map(col => {
+      let stats = '';
+      if (col.min != null) {
+        stats = `${fmtNum(col.min)} – ${fmtNum(col.max)}<br>avg ${fmtNum(col.mean)}`;
+      } else if (col.unique_values != null) {
+        const sv = (col.sample_values || []).slice(0,3).map(s => escHtml(String(s))).join(', ');
+        stats = `${col.unique_values} unique${sv ? ' · ' + sv : ''}`;
+      }
+      const nullNote = col.null_count > 0 ? ` · ${col.null_count} nulls` : '';
+      return `
+        <div class="col-item">
+          <div class="col-name">${escHtml(col.name)}</div>
+          <div class="col-type">${escHtml(col.type)}${nullNote}</div>
+          ${stats ? `<div class="col-stats">${stats}</div>` : ''}
+        </div>`;
+    }).join('');
+
+    document.getElementById('schema-box').classList.add('visible');
+  }
+
+  // ── Show chat ────────────────────────────────────────────────────────
+  function showChat() {
+    document.getElementById('welcome').style.display = 'none';
+    document.getElementById('messages').classList.add('visible');
+    document.getElementById('input-bar').classList.add('visible');
+    document.getElementById('query-input').focus();
+  }
+
+  // ── Send query ───────────────────────────────────────────────────────
+  async function sendQuery() {
+    if (isBusy || !sessionId) return;
+    const inp = document.getElementById('query-input');
+    const q = inp.value.trim();
+    if (!q) return;
+
+    inp.value = '';
+    inp.style.height = 'auto';
+    setBusy(true);
+
+    appendUser(q);
+    const loader = appendLoader();
+
+    try {
+      const res = await fetch('/api/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId, query: q }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Query failed');
+      }
+      const data = await res.json();
+      loader.remove();
+      appendResult(data);
+    } catch (err) {
+      loader.remove();
+      appendAI(`⚠️ ${err.message}`, true);
+    } finally {
+      setBusy(false);
+      document.getElementById('query-input').focus();
+    }
+  }
+
+  function setBusy(b) {
+    isBusy = b;
+    document.getElementById('query-input').disabled = b;
+    document.getElementById('send-btn').disabled = b;
+  }
+
+  // ── Message helpers ───────────────────────────────────────────────────
+  function appendUser(text) {
+    appendMsg('user', `<div class="msg-text">${escHtml(text)}</div>`);
+  }
+
+  function appendAI(text, isErr = false) {
+    const cls = isErr ? ' style="color:var(--red)"' : '';
+    appendMsg('assistant', `<div class="msg-text"${cls}>${escHtml(text)}</div>`);
+  }
+
+  function appendLoader() {
+    return appendMsg('assistant', `
+      <div class="typing">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      </div>`);
+  }
+
+  let _chartCounter = 0;
+
+  function appendResult(data) {
+    let inner = `<div class="msg-text">${escHtml(data.explanation)}</div>`;
+
+    const canShowChart = data.viz_type && data.result &&
+      (data.result.type === 'series' || data.result.type === 'table');
+
+    if (canShowChart) {
+      const chartId = `chart-${++_chartCounter}`;
+      inner += `<div class="result-section result-chart"><canvas id="${chartId}"></canvas></div>`;
+    }
+
+    if (data.result) {
+      inner += '<div class="result-section">' + renderResult(data.result) + '</div>';
+    }
+
+    const el = appendMsg('assistant', inner);
+
+    if (canShowChart) {
+      const chartId = `chart-${_chartCounter}`;
+      requestAnimationFrame(() => renderChart(chartId, data.result, data.viz_type));
+    }
+  }
+
+  function renderChart(canvasId, result, vizType) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+
+    const COLORS = [
+      '#6366f1','#f59e0b','#10b981','#ef4444','#3b82f6',
+      '#8b5cf6','#ec4899','#14b8a6','#f97316','#84cc16',
+    ];
+
+    let labels = [];
+    let datasets = [];
+
+    if (result.type === 'series') {
+      labels = result.index.map(v => v === null ? 'null' : String(v));
+      datasets = [{
+        label: result.name || 'Value',
+        data: result.values,
+        backgroundColor: vizType === 'pie'
+          ? COLORS.slice(0, labels.length)
+          : COLORS[0] + 'cc',
+        borderColor: vizType === 'line' ? COLORS[0] : COLORS[0],
+        borderWidth: vizType === 'line' ? 2 : 0,
+        fill: false,
+        pointRadius: vizType === 'line' ? 3 : 0,
+        tension: 0.3,
+      }];
+    } else if (result.type === 'table') {
+      labels = result.data.map(row => String(row[0]));
+      const numericColIdx = result.columns.reduce((acc, col, i) => {
+        if (i > 0 && result.data.some(r => typeof r[i] === 'number')) acc.push(i);
+        return acc;
+      }, []);
+      const colsToPlot = numericColIdx.slice(0, 4);
+      datasets = colsToPlot.map((ci, di) => ({
+        label: result.columns[ci],
+        data: result.data.map(row => row[ci]),
+        backgroundColor: COLORS[di % COLORS.length] + 'cc',
+        borderColor: COLORS[di % COLORS.length],
+        borderWidth: vizType === 'line' ? 2 : 0,
+        fill: false,
+        tension: 0.3,
+      }));
+    }
+
+    if (!labels.length || !datasets.length) return;
+
+    // Map viz_type to Chart.js type
+    const typeMap = { bar: 'bar', line: 'line', pie: 'pie', histogram: 'bar', scatter: 'scatter', box: 'bar' };
+    const chartType = typeMap[vizType] || 'bar';
+
+    new Chart(canvas, {
+      type: chartType,
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: datasets.length > 1 || chartType === 'pie' },
+        },
+        scales: chartType === 'pie' ? {} : {
+          x: {
+            ticks: { maxRotation: 45, font: { size: 11 } },
+            grid: { display: false },
+          },
+          y: {
+            ticks: { font: { size: 11 } },
+            grid: { color: '#f1f5f9' },
+          },
+        },
+      },
+    });
+  }
+
+  function renderResult(result) {
+    if (result.type === 'error') {
+      return `<div class="error-box">⚠️ ${escHtml(result.message)}</div>`;
+    }
+    if (result.type === 'scalar') {
+      return `<div class="result-scalar">${escHtml(result.value)}</div>`;
+    }
+    if (result.type === 'series') {
+      const rows = result.index.map((idx, i) =>
+        `<tr><td>${fmtCell(idx)}</td><td>${fmtCell(result.values[i])}</td></tr>`
+      ).join('');
+      const note = result.total_rows > result.index.length
+        ? `<div class="row-note">Showing ${result.index.length} of ${result.total_rows.toLocaleString()} rows</div>` : '';
+      return `
+        <div class="table-wrap">
+          <table class="result-table">
+            <thead><tr><th>Category</th><th>${escHtml(result.name || 'Value')}</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>${note}`;
+    }
+    if (result.type === 'table') {
+      const headers = result.columns.map(c => `<th>${escHtml(String(c))}</th>`).join('');
+      const rows = result.data.map(row =>
+        `<tr>${row.map(cell => `<td>${fmtCell(cell)}</td>`).join('')}</tr>`
+      ).join('');
+      const note = result.total_rows > result.data.length
+        ? `<div class="row-note">Showing ${result.data.length} of ${result.total_rows.toLocaleString()} rows</div>` : '';
+      return `
+        <div class="table-wrap">
+          <table class="result-table">
+            <thead><tr>${headers}</tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>${note}`;
+    }
+    return '';
+  }
+
+  function appendMsg(role, innerHtml) {
+    const msgs = document.getElementById('messages');
+    const el = document.createElement('div');
+    el.className = `msg ${role}`;
+    const icon = role === 'assistant' ? '🤖' : '👤';
+    el.innerHTML = `
+      <div class="avatar">${icon}</div>
+      <div class="bubble">${innerHtml}</div>`;
+    msgs.appendChild(el);
+    msgs.scrollTop = msgs.scrollHeight;
+    return el;
+  }
+
+  // ── Textarea auto-resize ─────────────────────────────────────────────
+  const qi = document.getElementById('query-input');
+  qi.addEventListener('input', () => {
+    qi.style.height = 'auto';
+    qi.style.height = Math.min(qi.scrollHeight, 120) + 'px';
+  });
+  qi.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendQuery(); }
+  });
+
+  // ── Formatting helpers ────────────────────────────────────────────────
+  function fmtCell(v) {
+    if (v === null || v === undefined) return '<span class="null-cell">—</span>';
+    if (typeof v === 'number') return escHtml(fmtNum(v));
+    return escHtml(String(v));
+  }
+
+  function fmtNum(n) {
+    if (n === null || n === undefined) return '—';
+    if (typeof n !== 'number') return String(n);
+    if (Math.abs(n) >= 1e6) return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+    if (Math.abs(n) >= 1000) return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    if (Number.isInteger(n)) return String(n);
+    return parseFloat(n.toPrecision(5)).toString();
+  }
+
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/\n/g, '<br>');
+  }
+</script>
+</body>
+</html>
