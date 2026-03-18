@@ -45,6 +45,9 @@ Open **http://localhost:8000** in your browser.
    - "Show me the distribution of customer ages"
 4. **Follow up** — ask drill-down questions based on previous answers
 
+## Download Sample CSV from
+https://github.com/datablist/sample-csv-files?tab=readme-ov-file
+
 ## Supported File Formats
 
 | Format | Extension |
@@ -69,7 +72,7 @@ AI-Data-Analysis-Assistant/
 └── README.md
 ```
 
-## Limitations
+## Intentional Limitations to protect your tokens
 
 - Sessions are stored in memory and expire after **2 hours** of inactivity — re-upload your file to start a new session
 - Restarting the server clears all sessions
